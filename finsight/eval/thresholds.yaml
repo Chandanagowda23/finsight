@@ -1,0 +1,11 @@
+# CI-gated minimum scores for FinSight RAG evaluation
+# Lightweight/mock mode uses keyword + citation proxies mapped to these names.
+faithfulness: 0.55
+context_recall: 0.55
+context_precision: 0.55
+answer_relevancy: 0.55
+adversarial_refusal_rate: 0.90
+
+# Lightweight offline metrics (when RAGAS/LLM unavailable)
+keyword_hit_rate: 0.55
+citation_doc_hit_rate: 0.55

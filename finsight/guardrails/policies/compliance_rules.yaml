@@ -1,0 +1,78 @@
+# Disallowed claim patterns and escalation triggers for FinSight output guardrails.
+# Matched case-insensitively against draft answers before they reach users.
+
+version: "1.0"
+
+disallowed_patterns:
+  - id: guaranteed_returns
+    pattern: "guarantee(d)? (you )?(a |an )?(return|profit|yield)"
+    action: rewrite
+    message: "FinSight cannot guarantee investment returns."
+
+  - id: personalized_investment_advice
+    pattern: "(you should|I recommend) (buy|sell|invest in|hold)"
+    action: rewrite
+    message: "Personalized investment advice is out of scope."
+
+  - id: credit_decision
+    pattern: "(you are|you've been) (approved|denied|rejected) for (a )?(loan|credit|mortgage)"
+    action: rewrite
+    message: "Agents must not issue credit decisions."
+
+  - id: tax_advice
+    pattern: "(tax (deductible|liability|strategy)|file (your )?taxes)"
+    action: rewrite
+    message: "Tax advice is out of scope — refer to a tax professional."
+
+  - id: legal_advice
+    pattern: "(you should sue|this is illegal|legal advice)"
+    action: rewrite
+    message: "Legal advice is out of scope."
+
+  - id: promise_outcome
+    pattern: "(we will definitely|guaranteed to|promise(d)? to (approve|refund|reverse))"
+    action: rewrite
+    message: "Do not promise outcomes the bank cannot guarantee."
+
+escalation_triggers:
+  - id: irreversible_action
+    pattern: "(transfer|wire|close account|file dispute|freeze card|block card)"
+    require_hitl: true
+
+  - id: low_confidence_handoff
+    pattern: "I don't have verified information"
+    require_hitl: false
+    offer_handoff: true
+
+topic_blocks:
+  - id: jailbreak
+    pattern: "(ignore (all )?(previous|prior) (instructions|rules)|dan mode|jailbreak|disable all compliance|uncensored)"
+    action: refuse
+    message: "I can't follow instructions that override my safety and compliance rules."
+
+  - id: out_of_scope_crypto_trading
+    pattern: "(which crypto|meme coin|day.?trad(e|ing) tip)"
+    action: refuse
+    message: "I can only help with FinSight banking products, accounts, and policies."
+
+  - id: malware_harm
+    pattern: "(malware|drain accounts|hack|exploit|dump all customer)"
+    action: refuse
+    message: "I can't help with harmful or unauthorized activity. If you need account support, ask about your own verified balances or disputes."
+
+  - id: insider_or_market_abuse
+    pattern: "(insider trading|avoid aml|hide income|structure deposits to avoid)"
+    action: refuse
+    message: "I can't assist with market abuse, tax evasion, or circumventing AML controls."
+
+  - id: unauthorized_approval
+    pattern: "(pre-approved for any|you are approved for|confirm i am approved)"
+    action: refuse
+    message: "I cannot issue credit approvals or guarantees. Eligibility estimates are informational only and require formal underwriting."
+
+abstention_template: >
+  I don't have verified information on that in our current knowledge base.
+  Please contact FinSight Support at 1-800-555-0199 or visit a branch for help.
+
+compliance_framing_prefix: >
+  For informational purposes only — this is not investment, legal, tax, or credit advice.

@@ -1,0 +1,61 @@
+name: FinSight CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "retrieval/**"
+      - "agents/**"
+      - "guardrails/**"
+      - "data/knowledge_base/**"
+      - "eval/**"
+      - "api/**"
+      - "tools/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  lint-test-eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: finsight
+    env:
+      LLM_PROVIDER: mock
+      LIGHTWEIGHT_MODE: "true"
+      QDRANT_IN_MEMORY: "true"
+      USE_SQLITE: "true"
+      PII_REDACTION_ENABLED: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: finsight/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          # Skip heavy NLP models in CI — regex PII fallback is enough
+
+      - name: Ruff lint
+        run: |
+          export PYTHONPATH=$PWD
+          ruff check api agents guardrails retrieval tools eval tests
+
+      - name: Unit + integration tests
+        run: |
+          export PYTHONPATH=$PWD
+          pytest -q --tb=short
+
+      - name: RAG eval gate (golden set)
+        run: |
+          export PYTHONPATH=$PWD
+          python -m eval.run_ragas_eval --limit 80

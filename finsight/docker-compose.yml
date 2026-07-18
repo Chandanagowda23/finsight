@@ -1,0 +1,108 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: finsight
+      POSTGRES_PASSWORD: finsight
+      POSTGRES_DB: finsight
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_IN_MEMORY: "false"
+      DATABASE_URL: postgresql+asyncpg://finsight:finsight@postgres:5432/finsight
+      DATABASE_URL_SYNC: postgresql://finsight:finsight@postgres:5432/finsight
+      USE_SQLITE: "false"
+      LIGHTWEIGHT_MODE: "true"
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+    volumes:
+      - ./:/app
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  customer_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: streamlit run frontend/customer_app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      FINSIGHT_API_URL: http://api:8000
+    volumes:
+      - ./:/app
+    depends_on:
+      - api
+
+  staff_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: streamlit run frontend/staff_console.py --server.port 8502 --server.address 0.0.0.0
+    ports:
+      - "8502:8502"
+    environment:
+      FINSIGHT_API_URL: http://api:8000
+    volumes:
+      - ./:/app
+    depends_on:
+      - api
+
+  # Optional local LLM — uncomment to enable fully offline inference
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+
+  # Optional observability — uncomment after first bring-up
+  # langfuse:
+  #   image: langfuse/langfuse:2
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     DATABASE_URL: postgresql://finsight:finsight@postgres:5432/langfuse
+  #     NEXTAUTH_SECRET: finsight-langfuse-secret
+  #     NEXTAUTH_URL: http://localhost:3000
+  #     SALT: finsight-salt
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  # ollama_data:
